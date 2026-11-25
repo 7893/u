@@ -1,0 +1,207 @@
+#!/bin/sh
+# Install a staged /u release. The passphrase stays in ${BASE}/etc/u.env.
+set -eu
+
+if [ "$#" -ne 1 ]; then
+  echo "usage: install-release STAGE" >&2
+  exit 1
+fi
+
+require_name() {
+  case "$2" in
+    ""|*[!A-Za-z0-9._-]*)
+      echo "[ERR] $1 must be a simple name" >&2
+      exit 1
+      ;;
+  esac
+}
+
+require_abs() {
+  case "$2" in
+    /*) ;;
+    *)
+      echo "[ERR] $1 must be an absolute path" >&2
+      exit 1
+      ;;
+  esac
+  case "$2" in
+    *[!A-Za-z0-9._/-]*|*"//"*|*/..|*/../*|../*)
+      echo "[ERR] $1 is not a safe absolute path" >&2
+      exit 1
+      ;;
+  esac
+}
+
+reload_nginx() {
+  if command -v service >/dev/null 2>&1; then
+    sudo service nginx reload
+  elif command -v systemctl >/dev/null 2>&1; then
+    sudo systemctl reload nginx
+  else
+    sudo nginx -s reload
+  fi
+}
+
+STAGE=$1
+if [ -z "${REMOTE_BASE:-}" ]; then
+  echo "[ERR] REMOTE_BASE is required" >&2
+  exit 1
+fi
+BASE=${REMOTE_BASE%/}
+DEPLOY_STATS=${DEPLOY_STATS:-0}
+DEPLOY_NGINX=${DEPLOY_NGINX:-0}
+DEPLOY_PDFJS=${DEPLOY_PDFJS:-0}
+REQUIRE_LEGACY_MAP=${REQUIRE_LEGACY_MAP:-0}
+INSTALL_USER=${INSTALL_USER:-www}
+INSTALL_GROUP=${INSTALL_GROUP:-www}
+STATS_USER=${STATS_USER:-$INSTALL_USER}
+STATS_GROUP=${STATS_GROUP:-$INSTALL_GROUP}
+NGINX_CONF_DIR=${NGINX_CONF_DIR:-/etc/nginx}
+NGINX_CONF_DIR=${NGINX_CONF_DIR%/}
+NGINX_GROUP=${NGINX_GROUP:-root}
+PY=${U_PYTHON:-python3}
+
+require_abs STAGE "$STAGE"
+require_abs REMOTE_BASE "$BASE"
+require_abs NGINX_CONF_DIR "$NGINX_CONF_DIR"
+require_name INSTALL_USER "$INSTALL_USER"
+require_name INSTALL_GROUP "$INSTALL_GROUP"
+require_name STATS_USER "$STATS_USER"
+require_name STATS_GROUP "$STATS_GROUP"
+require_name NGINX_GROUP "$NGINX_GROUP"
+case "$PY" in
+  ""|*[!A-Za-z0-9._/-]*|*"//"*|*/..|*/../*|../*)
+    echo "[ERR] U_PYTHON is not a safe command or path" >&2
+    exit 1
+    ;;
+esac
+
+install_www() {
+  sudo install -o "$INSTALL_USER" -g "$INSTALL_GROUP" -m 0644 -- "$1" "$2"
+}
+
+sudo mkdir -p "$BASE/public" "$BASE/bin"
+
+install_www "$STAGE/index.html" "$BASE/public/index.html"
+install_www "$STAGE/index.html.gz" "$BASE/public/index.html.gz"
+install_www "$STAGE/app.js" "$BASE/public/app.js"
+install_www "$STAGE/app.js.gz" "$BASE/public/app.js.gz"
+install_www "$STAGE/app.css" "$BASE/public/app.css"
+install_www "$STAGE/app.css.gz" "$BASE/public/app.css.gz"
+
+if [ "$DEPLOY_PDFJS" -eq 1 ]; then
+  mkdir -p "$STAGE/pdfjs"
+  tar -xf "$STAGE/pdfjs.tar" -C "$STAGE/pdfjs"
+  sudo mkdir -p "$BASE/public/pdfjs" "$BASE/public/pdfjs/cmaps" "$BASE/public/pdfjs/standard_fonts" "$BASE/public/pdfjs/wasm"
+  for f in pdf.min.mjs pdf.min.mjs.gz pdf.worker.min.mjs pdf.worker.min.mjs.gz; do
+    install_www "$STAGE/pdfjs/$f" "$BASE/public/pdfjs/$f"
+  done
+  for sub in cmaps standard_fonts wasm; do
+    sudo find "$BASE/public/pdfjs/$sub" -mindepth 1 -maxdepth 1 -delete
+    sudo cp -R "$STAGE/pdfjs/$sub/." "$BASE/public/pdfjs/$sub/"
+    sudo chown -R "$INSTALL_USER:$INSTALL_GROUP" "$BASE/public/pdfjs/$sub"
+    sudo find "$BASE/public/pdfjs/$sub" -type d -exec chmod 0755 {} +
+    sudo find "$BASE/public/pdfjs/$sub" -type f -exec chmod 0644 {} +
+  done
+fi
+
+if [ "$DEPLOY_STATS" -eq 1 ]; then
+  if [ ! -f "$BASE/etc/legacy-map.json" ]; then
+    if [ "$REQUIRE_LEGACY_MAP" = "1" ] || [ "$REQUIRE_LEGACY_MAP" = "true" ]; then
+      echo "[ERR] Refusing to install stats.py without $BASE/etc/legacy-map.json (REQUIRE_LEGACY_MAP=1)" >&2
+      exit 1
+    fi
+    echo "[NOTE] $BASE/etc/legacy-map.json not found; installing stats.py with empty legacy route map." >&2
+  fi
+  sudo install -o "$STATS_USER" -g "$STATS_GROUP" -m 0750 -- "$STAGE/stats.py" "$BASE/bin/stats.py"
+fi
+
+if [ "$DEPLOY_NGINX" -eq 1 ]; then
+  if [ ! -f "$BASE/etc/u.env" ]; then
+    echo "[ERR] Refusing to render nginx without $BASE/etc/u.env" >&2
+    exit 1
+  fi
+  sudo "$PY" - "$STAGE" "$BASE/etc/u.env" "$BASE" <<'PY'
+import hashlib
+import os
+import pathlib
+import re
+import sys
+
+stage = pathlib.Path(sys.argv[1])
+root = sys.argv[3].rstrip("/")
+if not root.startswith("/") or ".." in root.split("/"):
+    sys.exit("install root must be an absolute path")
+env = {}
+for raw in pathlib.Path(sys.argv[2]).read_text(encoding="utf-8").splitlines():
+    line = raw.strip()
+    if not line or line.startswith("#") or "=" not in line:
+        continue
+    key, value = line.split("=", 1)
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        value = value[1:-1]
+    env[key.strip()] = value
+digest = env.get("U_PASS_SHA256", "")
+if not digest:
+    digest = hashlib.sha256(f"{env['U_GATE_PREFIX']}:{env['U_PASS']}".encode()).hexdigest()
+if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+    sys.exit("passphrase digest must be 64 hex characters")
+origin = env["PUBLIC_ORIGIN"].rstrip("/")
+track_port = env.get("U_TRACK_PORT", "19204").strip() or "19204"
+if not track_port.isdigit() or not (1024 <= int(track_port) <= 65535):
+    sys.exit("U_TRACK_PORT must be an integer between 1024 and 65535")
+alt_svc = env.get("U_ALT_SVC", "").strip()
+if alt_svc and ("'" in alt_svc or "\n" in alt_svc or "\r" in alt_svc):
+    sys.exit("U_ALT_SVC must not contain single quotes or newlines")
+
+for name in ("u_http.conf", "u_locations.conf"):
+    path = stage / name
+    text = path.read_text(encoding="utf-8")
+    if alt_svc:
+        text = text.replace("__U_ALT_SVC_HEADER__", f"add_header Alt-Svc '{alt_svc}' always;")
+    else:
+        text = re.sub(r"^[ \t]*__U_ALT_SVC_HEADER__[ \t]*\r?\n?", "", text, flags=re.MULTILINE)
+    text = (
+        text.replace("__U_PASS_SHA256__", digest)
+        .replace("__PUBLIC_ORIGIN__", origin)
+        .replace("__U_ROOT__", root)
+        .replace("__U_TRACK_PORT__", track_port)
+    )
+    if re.search(r"__(?:U|PUBLIC)_[A-Z0-9_]+__", text):
+        sys.exit(f"placeholder left in {name}")
+    path.write_text(text, encoding="utf-8")
+    os.chmod(path, 0o600)
+PY
+  BACKUP_DIR="$STAGE/nginx_bak"
+  mkdir -p "$BACKUP_DIR"
+  UID_NUM="$(id -u)"
+  GID_NUM="$(id -g)"
+  if [ -f "$NGINX_CONF_DIR/u_http.conf" ]; then
+    sudo install -o "$UID_NUM" -g "$GID_NUM" -m 0600 -- "$NGINX_CONF_DIR/u_http.conf" "$BACKUP_DIR/u_http.conf"
+  fi
+  if [ -f "$NGINX_CONF_DIR/u_locations.conf" ]; then
+    sudo install -o "$UID_NUM" -g "$GID_NUM" -m 0600 -- "$NGINX_CONF_DIR/u_locations.conf" "$BACKUP_DIR/u_locations.conf"
+  fi
+  sudo install -o root -g "$NGINX_GROUP" -m 0600 -- "$STAGE/u_http.conf" "$NGINX_CONF_DIR/u_http.conf"
+  sudo install -o root -g "$NGINX_GROUP" -m 0600 -- "$STAGE/u_locations.conf" "$NGINX_CONF_DIR/u_locations.conf"
+  if ! sudo nginx -t >"$STAGE/nginx-t.txt" 2>&1; then
+    echo "[ERR] nginx -t failed; rolling back u configs" >&2
+    cat "$STAGE/nginx-t.txt" >&2
+    if [ -f "$BACKUP_DIR/u_http.conf" ]; then
+      sudo install -o root -g "$NGINX_GROUP" -m 0600 -- "$BACKUP_DIR/u_http.conf" "$NGINX_CONF_DIR/u_http.conf"
+    else
+      sudo rm -f -- "$NGINX_CONF_DIR/u_http.conf"
+    fi
+    if [ -f "$BACKUP_DIR/u_locations.conf" ]; then
+      sudo install -o root -g "$NGINX_GROUP" -m 0600 -- "$BACKUP_DIR/u_locations.conf" "$NGINX_CONF_DIR/u_locations.conf"
+    else
+      sudo rm -f -- "$NGINX_CONF_DIR/u_locations.conf"
+    fi
+    exit 1
+  fi
+else
+  sudo nginx -t >/dev/null
+fi
+
+reload_nginx

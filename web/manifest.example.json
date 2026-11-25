@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "updated_at": "2026-01-01",
+  "batches": [
+    {
+      "id": "example",
+      "date": "2026-01-01",
+      "title": "Example",
+      "status": "latest",
+      "lang_badge": "EN",
+      "summary": "1 file",
+      "files": [
+        {
+          "name": "example.pdf",
+          "path": "batches/example/example.pdf",
+          "ext": "PDF",
+          "lang": "English",
+          "desc": "Replace this file with a real deliverable.",
+          "bytes": 0,
+          "preview": true,
+          "pages": 1
+        }
+      ]
+    }
+  ],
+  "references": []
+}

@@ -1,0 +1,27 @@
+{
+  "name": "u",
+  "version": "2.0.0",
+  "description": "Self-hosted file exchange portal with a browser PDF reader",
+  "license": "Apache-2.0",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/7893/u.git"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test scripts/test-gate.mjs && python3 -m unittest scripts/test_ops.py",
+    "build": "./scripts/build.sh",
+    "deploy": "./scripts/deploy.sh",
+    "timeline": "./scripts/timeline.sh"
+  },
+  "dependencies": {
+    "@uppy/core": "^6.3.1",
+    "@uppy/locales": "^5.3.2",
+    "@uppy/xhr-upload": "^6.0.1",
+    "esbuild": "^0.28.2",
+    "pdfjs-dist": "^6.5.438"
+  }
+}

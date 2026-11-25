@@ -1,0 +1,67 @@
+#!/bin/sh
+# Bootstrap a fresh host directory layout for `u`.
+# Run on the target server with sudo privileges:
+#   REMOTE_BASE=/srv/u INSTALL_USER=www-data INSTALL_GROUP=www-data ./scripts/init-host
+set -eu
+
+BASE="${REMOTE_BASE:-/srv/u}"
+BASE="${BASE%/}"
+INSTALL_USER="${INSTALL_USER:-www}"
+INSTALL_GROUP="${INSTALL_GROUP:-www}"
+NGINX_GROUP="${NGINX_GROUP:-root}"
+
+case "$BASE" in
+  /*) ;;
+  *) echo "[ERR] REMOTE_BASE must be an absolute path" >&2; exit 1 ;;
+esac
+
+sudo mkdir -p \
+  "$BASE/bin" \
+  "$BASE/etc" \
+  "$BASE/logs" \
+  "$BASE/public" \
+  "$BASE/data/.tmp" \
+  "$BASE/data/inbox" \
+  "$BASE/data/deliverables/batches" \
+  "$BASE/data/deliverables/reference"
+
+sudo chown root:"$INSTALL_GROUP" "$BASE" "$BASE/bin"
+sudo chmod 0755 "$BASE" "$BASE/bin"
+
+sudo chown root:"$NGINX_GROUP" "$BASE/etc"
+sudo chmod 0755 "$BASE/etc"
+
+sudo chown "$INSTALL_USER:$INSTALL_GROUP" \
+  "$BASE/logs" \
+  "$BASE/public" \
+  "$BASE/data" \
+  "$BASE/data/.tmp" \
+  "$BASE/data/inbox" \
+  "$BASE/data/deliverables" \
+  "$BASE/data/deliverables/batches" \
+  "$BASE/data/deliverables/reference"
+
+sudo chmod 0750 "$BASE/logs"
+sudo chmod 2775 "$BASE/public"
+sudo chmod 2770 \
+  "$BASE/data" \
+  "$BASE/data/.tmp" \
+  "$BASE/data/inbox" \
+  "$BASE/data/deliverables" \
+  "$BASE/data/deliverables/batches" \
+  "$BASE/data/deliverables/reference"
+
+if [ ! -f "$BASE/public/manifest.json" ]; then
+  printf '{\n  "version": 1,\n  "updated_at": "",\n  "batches": [],\n  "references": []\n}\n' \
+    | sudo tee "$BASE/public/manifest.json" >/dev/null
+  sudo chown "$INSTALL_USER:$INSTALL_GROUP" "$BASE/public/manifest.json"
+  sudo chmod 0644 "$BASE/public/manifest.json"
+fi
+
+echo "[OK] Initialized $BASE"
+if [ ! -f "$BASE/etc/u.env" ]; then
+  echo "[NEXT] Create $BASE/etc/u.env (chmod 600, owned by root) with:"
+  echo "  U_PASS=<high-entropy-passphrase>"
+  echo "  U_GATE_PREFIX=<same-prefix-as-deploy.env>"
+  echo "  PUBLIC_ORIGIN=https://files.example"
+fi

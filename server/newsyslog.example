@@ -1,0 +1,5 @@
+# FreeBSD newsyslog example for daily /u/ log slicing at midnight.
+# Copy to /usr/local/etc/newsyslog.conf.d/u_logs.conf and adjust paths/owner.
+# logfilename                    [owner:group]  mode count size when  flags [/pid_file]        [sig_num]
+/srv/u/logs/requests.jsonl       www:www        640  90    *    @T00  JC    /var/run/nginx.pid 30
+/srv/u/logs/visitors.jsonl       www:www        640  90    *    @T00  JC    /var/run/nginx.pid 30

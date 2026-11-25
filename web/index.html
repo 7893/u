@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate, max-snippet:0, max-image-preview:none, max-video-preview:0, noai, noimageai">
+<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex, max-snippet:0, max-image-preview:none">
+<meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex, max-snippet:0, max-image-preview:none">
+<meta name="baiduspider" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="tdm-reservation" content="1">
+<meta name="theme-color" content="#eef4ff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#060a12" media="(prefers-color-scheme: dark)">
+<title>文件传阅</title>
+<link rel="icon" href="data:,">
+<!-- U_FONT_PRELOAD -->
+<link rel="stylesheet" href="/u/app.css">
+</head>
+<body>
+<div class="ambient" aria-hidden="true"></div>
+
+<!-- Full-Window Drag-and-Drop Overlay -->
+<div id="drag-veil" class="drag-veil" hidden aria-hidden="true">
+  <div class="drag-veil-box">
+    <div class="drag-veil-icon">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 17V3"/>
+        <path d="m6 9 6-6 6 6"/>
+        <path d="M19 21H5"/>
+      </svg>
+    </div>
+    <p class="drag-veil-title">松开即可加入上传队列</p>
+    <p class="drag-veil-sub">支持同时拖入多个文件 · 单文件上限 1 GB</p>
+  </div>
+</div>
+
+<div class="viewport-shell">
+  <!-- ==========================================
+       SCREEN 1: SCULPTURAL PASSKEY PORTAL
+       ========================================== -->
+  <section id="view-gate" class="portal" aria-labelledby="gate-heading" hidden>
+    <div class="portal-pill">
+      <span class="pulse-dot" aria-hidden="true"></span>
+      <span>私密文件空间 · TLS 1.3</span>
+    </div>
+
+    <div class="portal-emblem" aria-hidden="true">
+      <svg viewBox="0 0 32 32" width="30" height="30" fill="none">
+        <path d="M16 3.5 6 7.8v7.6c0 6.5 4.3 12.4 10 14.1 5.7-1.7 10-7.6 10-14.1V7.8L16 3.5Z" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+        <circle cx="16" cy="14.5" r="2.3" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M16 16.8v3.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <h1 id="gate-heading" class="portal-title">输入口令开启</h1>
+    <p class="portal-sub">凭口令取阅共享文档，或向服务器批量投递文件</p>
+
+    <form id="gate-form" class="capsule-form" autocomplete="off">
+      <div id="capsule-bar" class="capsule-bar">
+        <span class="capsule-icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3.5" y="9" width="13" height="8.5" rx="2.5"/>
+            <path d="M6.5 9V6.2a3.5 3.5 0 0 1 7 0V9"/>
+          </svg>
+        </span>
+        <input id="pwd-input" class="capsule-input" type="password" placeholder="输入访问口令…" aria-label="访问口令" required>
+        <button id="btn-unlock" class="capsule-submit" type="submit">
+          <span id="unlock-label">开启</span>
+          <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3.5 8h9M8.5 4l4 4-4 4"/>
+          </svg>
+        </button>
+      </div>
+      <p id="gate-err" class="portal-err" role="alert" hidden></p>
+      <button id="btn-retry-logout" class="pdf-retry-btn" type="button" hidden>重试退出</button>
+    </form>
+  </section>
+
+  <!-- ==========================================
+       SCREEN 2: UNLOCKED STUDIO CAPSULE
+       ========================================== -->
+  <div id="view-ws" class="studio-wrap" hidden>
+    <!-- Floating Top Capsule Dock -->
+    <header class="dock">
+      <div class="dock-status">
+        <span class="pulse-dot" aria-hidden="true"></span>
+        <span class="dock-brand">文件传阅舱</span>
+        <span class="dock-sep" aria-hidden="true">·</span>
+        <span class="dock-cap">1 GB / 件</span>
+      </div>
+
+      <button id="btn-lock" class="dock-lock" type="button">
+        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="7.2" width="10" height="6.8" rx="2"/>
+          <path d="M5.5 7.2V5a2.5 2.5 0 0 1 5 0v2.2"/>
+        </svg>
+        <span>锁定退出</span>
+      </button>
+    </header>
+
+    <!-- Main Crystal Sheet -->
+    <main class="crystal-sheet">
+      <input id="file-picker" type="file" multiple hidden>
+
+      <!-- Upper Zone: Upload Stage -->
+      <div class="upload-zone">
+        <!-- State A: Empty Hero Stage -->
+        <div id="drop-empty" class="drop-empty" role="button" tabindex="0" aria-label="选择或拖入文件上传">
+          <div class="fan-illustration" aria-hidden="true">
+            <div class="fan-card fan-left">
+              <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2.5" y="3.5" width="15" height="13" rx="2.5"/>
+                <circle cx="7" cy="8" r="1.3"/>
+                <path d="m17.5 13-4-4-6.5 6.5"/>
+              </svg>
+            </div>
+            <div class="fan-card fan-right">
+              <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11.5 2.5H5.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-8l-5-5Z"/>
+                <path d="M11.5 2.5v5h5"/>
+              </svg>
+            </div>
+            <div class="fan-card fan-center">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 16V5"/>
+                <path d="m7.5 9.5 4.5-4.5 4.5 4.5"/>
+                <path d="M6 19h12"/>
+              </svg>
+            </div>
+          </div>
+
+          <h2 class="empty-title">
+            <span class="desktop-only">拖拽文件至此，或点击添加</span>
+            <span class="mobile-only">轻触添加需要投递的文件</span>
+          </h2>
+          <p class="empty-sub">支持一次多选任意格式 · 单个文件上限 1 GB</p>
+
+          <span class="empty-cta">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true">
+              <path d="M8 3v10M3 8h10"/>
+            </svg>
+            <span>选择文件（可多选）</span>
+          </span>
+        </div>
+
+        <!-- State B: Active Multi-File Queue -->
+        <div id="drop-queue" class="drop-queue" hidden>
+          <div class="queue-head">
+            <div class="queue-summary">
+              <h2 id="queue-title" class="queue-title">已选 0 个文件</h2>
+              <span id="queue-meta" class="queue-meta">0 B</span>
+            </div>
+            <div class="queue-tools">
+              <button id="btn-add-more" class="tool-pill" type="button">
+                <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                  <path d="M7 2v10M2 7h10"/>
+                </svg>
+                <span>继续添加</span>
+              </button>
+              <button id="btn-clear" class="tool-ghost" type="button">清空</button>
+            </div>
+          </div>
+
+          <div id="overall-bar-wrap" class="overall-bar-wrap" hidden>
+            <div id="overall-bar" class="overall-bar"></div>
+          </div>
+
+          <ul id="file-list" class="file-list" aria-label="待上传文件列表"></ul>
+
+          <div class="queue-foot">
+            <button id="btn-primary-upload" class="primary-upload-btn" type="button">开始上传</button>
+          </div>
+        </div>
+
+        <p id="uppy-toast" class="uppy-toast" role="alert" hidden></p>
+        <div id="receipt-root" class="receipt-root" hidden></div>
+      </div>
+
+      <!-- Lower Zone: Dynamic Delivery & History Center -->
+      <div class="tray-zone">
+        <div class="tray-toolbar">
+          <div id="delivery-tabs" class="tray-tabs" role="group" aria-label="交付分类">
+            <button type="button" class="tray-tab is-active" data-tab="all" aria-pressed="true">全部</button>
+            <button type="button" class="tray-tab" data-tab="latest" aria-pressed="false">最新交付</button>
+            <button type="button" class="tray-tab" data-tab="archive" aria-pressed="false">历史归档</button>
+            <button type="button" class="tray-tab" data-tab="reference" aria-pressed="false">参考资料</button>
+          </div>
+          <div class="tray-search-wrap">
+            <svg class="tray-search-ico" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="7.2" cy="7.2" r="4.6"/>
+              <path d="m10.7 10.7 3 3"/>
+            </svg>
+            <input id="delivery-search" class="tray-search" type="search" placeholder="筛选文件名、批次或语种…" aria-label="筛选共享文件" autocomplete="off">
+          </div>
+        </div>
+
+        <div id="delivery-root" class="delivery-root" aria-live="polite">
+          <p class="delivery-state">解锁后加载交付记录…</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- In-Page PDF Reader Modal (Self-Hosted PDF.js) -->
+<div id="pdf-modal" class="pdf-modal" role="dialog" aria-modal="true" aria-labelledby="pdf-title" hidden>
+  <div class="pdf-dialog">
+    <header class="pdf-bar">
+      <div class="pdf-bar-left">
+        <span id="pdf-title" class="pdf-title">文档预览</span>
+        <div id="pdf-page-ind" class="pdf-page-jump" title="输入页码回车直达">
+          <input id="pdf-page-input" class="pdf-page-input" type="text" inputmode="numeric" value="1" aria-label="当前页码" autocomplete="off">
+          <span id="pdf-page-total" class="pdf-page-total">/ —</span>
+        </div>
+      </div>
+      <div class="pdf-bar-tools">
+        <button id="pdf-prev" class="pdf-tool-btn" type="button" title="上一页 (←)" aria-label="上一页">‹</button>
+        <button id="pdf-next" class="pdf-tool-btn" type="button" title="下一页 (→)" aria-label="下一页">›</button>
+        <button id="pdf-zoom-out" class="pdf-tool-btn" type="button" title="缩小 (-)" aria-label="缩小">−</button>
+        <button id="pdf-zoom-ind" class="pdf-zoom-ind" type="button" title="点击复位 100% 适配宽度" aria-label="复位缩放">100%</button>
+        <button id="pdf-zoom-in" class="pdf-tool-btn" type="button" title="放大 (+)" aria-label="放大">+</button>
+        <button id="pdf-find-toggle" class="pdf-tool-btn" type="button" title="文档内搜索 (Ctrl+F)" aria-label="文档内搜索">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.5"/>
+            <path d="m10.5 10.5 3 3"/>
+          </svg>
+        </button>
+        <a id="pdf-ext-link" class="pdf-tool-pill" href="#" target="_blank" rel="noopener noreferrer" title="在新标签打开">新标签</a>
+        <a id="pdf-dl-link" class="pdf-tool-pill is-primary" href="#" download>下载</a>
+        <button id="pdf-close" class="pdf-tool-btn is-close" type="button" title="关闭 (Esc)" aria-label="关闭预览">✕</button>
+      </div>
+    </header>
+    <div id="pdf-find-bar" class="pdf-find-bar" hidden>
+      <svg class="pdf-find-ico" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="7" cy="7" r="4.5"/>
+        <path d="m10.5 10.5 3 3"/>
+      </svg>
+      <input id="pdf-find-input" class="pdf-find-input" type="search" placeholder="在当前文档中搜索文字…" aria-label="搜索文档内容" autocomplete="off">
+      <span id="pdf-find-count" class="pdf-find-count"></span>
+      <button id="pdf-find-prev" class="pdf-tool-btn" type="button" title="上一个 (Shift+Enter)" aria-label="上一个匹配">↑</button>
+      <button id="pdf-find-next" class="pdf-tool-btn" type="button" title="下一个 (Enter)" aria-label="下一个匹配">↓</button>
+      <button id="pdf-find-close" class="pdf-tool-btn is-close" type="button" title="关闭搜索 (Esc)" aria-label="关闭搜索">✕</button>
+    </div>
+    <div id="pdf-stage" class="pdf-stage">
+      <div id="pdf-status" class="pdf-status">
+        <p id="pdf-status-text" class="pdf-status-text" role="status">正在加载文档…</p>
+        <div class="pdf-progress-track">
+          <div id="pdf-progress-bar" class="pdf-progress-bar"></div>
+        </div>
+        <button id="pdf-load-retry" class="pdf-retry-btn" type="button" hidden>重试预览</button>
+      </div>
+      <div id="pdf-pages" class="pdf-pages"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/u/app.js" defer></script>
+</body>
+</html>

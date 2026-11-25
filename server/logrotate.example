@@ -1,0 +1,18 @@
+# Linux logrotate example for daily log slicing (place in /etc/logrotate.d/u)
+# Replace /srv/u, www-data, and reload/reopen command to match your host.
+
+/srv/u/logs/requests.jsonl /srv/u/logs/visitors.jsonl {
+    daily
+    dateext
+    dateformat -%Y-%m-%d
+    rotate 90
+    missingok
+    notifempty
+    compress
+    delaycompress
+    create 0640 www-data www-data
+    sharedscripts
+    postrotate
+        [ -s /run/nginx.pid ] && kill -USR1 "$(cat /run/nginx.pid)" || nginx -s reopen >/dev/null 2>&1 || true
+    endscript
+}

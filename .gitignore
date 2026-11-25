@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.gz
+.DS_Store
+__pycache__/
+*.pyc
+deploy.env
+web/manifest.json
+private/
